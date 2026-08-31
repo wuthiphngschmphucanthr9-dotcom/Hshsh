@@ -1,0 +1,324 @@
+--[[
+    ================================================================
+    SUNDAY HUB - MUSCLE LEGENDS (FRAMEWORK THAI EDITION)
+    Developer: Sunday Team
+    Key Requirement: Sunday
+    ================================================================
+--]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Global Configuration & State
+getgenv().SundayHub = getgenv().SundayHub or {
+    AutoLift = false,
+    SavedTool = nil,
+    AutoMark = false,
+    MarkedCFrame = nil,
+    AutoRebirth = false,
+    AutoSellPets = false,
+    SelectedRarity = "Common",
+    AutoGym = false,
+    SelectedGym = "Muscle King Gym (5M+ Strength)"
+}
+
+local Config = getgenv().SundayHub
+local CORRECT_KEY = "sunday"
+
+-- Safe GUI Parent Guard
+local function GetSafeParent()
+    local success, parent = pcall(function()
+        if gethui then return gethui() end
+        return CoreGui
+    end)
+    if not success or not parent then
+        parent = PlayerGui
+    end
+    return parent
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SundayHubThaiFrameworkUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = GetSafeParent()
+
+-- หน้าต่างกรอกคีย์ (Key System Window)
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Name = "KeyFrame"
+KeyFrame.Size = UDim2.new(0, 360, 0, 200)
+KeyFrame.Position = UDim2.new(0.5, -180, 0.5, -100)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+KeyFrame.Active = true
+KeyFrame.Draggable = true
+KeyFrame.Parent = ScreenGui
+
+local KeyCorner = Instance.new("UICorner")
+KeyCorner.CornerRadius = UDim.new(0, 10)
+KeyCorner.Parent = KeyFrame
+
+local KeyTitle = Instance.new("TextLabel")
+KeyTitle.Size = UDim2.new(1, 0, 0, 40)
+KeyTitle.Text = "☀️ SUNDAY HUB | ยืนยันรหัสคีย์ (Key: Sunday)"
+KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyTitle.TextSize = 14
+KeyTitle.Font = Enum.Font.SourceSansBold
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Parent = KeyFrame
+
+local KeyInput = Instance.new("TextBox")
+KeyInput.Size = UDim2.new(0.85, 0, 0, 38)
+KeyInput.Position = UDim2.new(0.075, 0, 0.38, 0)
+KeyInput.PlaceholderText = "พิมพ์รหัสคีย์ที่นี่ (Sunday)..."
+KeyInput.Text = ""
+KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyInput.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+KeyInput.Parent = KeyFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = KeyInput
+
+local KeyStatus = Instance.new("TextLabel")
+KeyStatus.Size = UDim2.new(1, 0, 0, 20)
+KeyStatus.Position = UDim2.new(0, 0, 0.58, 0)
+KeyStatus.BackgroundTransparency = 1
+KeyStatus.Text = ""
+KeyStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+KeyStatus.TextSize = 11
+KeyStatus.Font = Enum.Font.SourceSans
+KeyStatus.Parent = KeyFrame
+
+local SubmitBtn = Instance.new("TextButton")
+SubmitBtn.Size = UDim2.new(0.85, 0, 0, 38)
+SubmitBtn.Position = UDim2.new(0.075, 0, 0.72, 0)
+SubmitBtn.Text = "เข้าสู่ระบบ (Submit Key)"
+SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SubmitBtn.BackgroundColor3 = Color3.fromRGB(255, 51, 102)
+SubmitBtn.Font = Enum.Font.SourceSansBold
+SubmitBtn.Parent = KeyFrame
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 6)
+BtnCorner.Parent = SubmitBtn
+
+----------------------------------------------------------------
+-- MAIN HUB UI CONSTRUCTION (เมนูหลักภาษาไทย)
+----------------------------------------------------------------
+
+local function OpenMainUI()
+    KeyFrame:Destroy()
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 480, 0, 360)
+    MainFrame.Position = UDim2.new(0.5, -240, 0.5, -180)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Parent = ScreenGui
+
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 10)
+    MainCorner.Parent = MainFrame
+
+    local MainTitle = Instance.new("TextLabel")
+    MainTitle.Size = UDim2.new(1, 0, 0, 40)
+    MainTitle.Text = "☀️ SUNDAY HUB | Muscle Legends ภาษาไทย"
+    MainTitle.TextColor3 = Color3.fromRGB(255, 51, 102)
+    MainTitle.TextSize = 14
+    MainTitle.Font = Enum.Font.SourceSansBold
+    MainTitle.BackgroundTransparency = 1
+    MainTitle.Parent = MainFrame
+
+    -- Scrolling Container สำหรับจัดหมวดหมู่ฟังก์ชัน
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Size = UDim2.new(1, -20, 1, -50)
+    Scroll.Position = UDim2.new(0, 10, 0, 45)
+    Scroll.BackgroundTransparency = 1
+    Scroll.CanvasSize = UDim2.new(0, 0, 4, 0)
+    Scroll.ScrollBarThickness = 4
+    Scroll.Parent = MainFrame
+
+    local UIList = Instance.new("UIListLayout")
+    UIList.Padding = UDim.new(0, 6)
+    UIList.Parent = Scroll
+
+    local function AddBtn(text, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 34)
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 12
+        btn.Parent = Scroll
+
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 6)
+        c.Parent = btn
+
+        btn.MouseButton1Click:Connect(callback)
+    end
+
+    -- หมวดหมู่ฟังก์ชันการใช้งานภาษาไทย
+    AddBtn("🏋️ เปิด/ปิด ปั๊มกล้ามอัตโนมัติ (พร้อมระบบจดจำไอเทม)", function()
+        Config.AutoLift = not Config.AutoLift
+        print("สถานะปั๊มกล้าม: " .. tostring(Config.AutoLift))
+    end)
+
+    AddBtn("📍 บันทึกมาร์กพิกัดตำแหน่งยืนปัจจุบัน", function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            Config.MarkedCFrame = char.HumanoidRootPart.CFrame
+            print("บันทึกพิกัดสำเร็จ!")
+        end
+    end)
+
+    AddBtn("🔄 เปิด/ปิด วาร์ปกลับจุดมาร์กอัตโนมัติเมื่อตาย/Rebirth", function()
+        Config.AutoMark = not Config.AutoMark
+        print("สถานะวาร์ปกลับจุดมาร์ก: " .. tostring(Config.AutoMark))
+    end)
+
+    AddBtn("⚡ เปิด/ปิด รีเบิร์ดอัตโนมัติ (Auto Rebirth)", function()
+        Config.AutoRebirth = not Config.AutoRebirth
+        print("สถานะรีเบิร์ดอัตโนมัติ: " .. tostring(Config.AutoRebirth))
+    end)
+
+    AddBtn("💰 เปิด/ปิด ขายสัตว์เลี้ยงซ้ำในกระเป๋า (Auto Sell Pets)", function()
+        Config.AutoSellPets = not Config.AutoSellPets
+        print("สถานะขายสัตว์เลี้ยง: " .. tostring(Config.AutoSellPets))
+    end)
+
+    AddBtn("🏛️ เปิด/ปิด ฟาร์มยิมหลัก Muscle King Gym", function()
+        Config.AutoGym = not Config.AutoGym
+        print("สถานะฟาร์มยิม: " .. tostring(Config.AutoGym))
+    end)
+
+    AddBtn("💎 วาร์ปไปยืนหน้ากล่องของขวัญประจำวัน (Daily Chest)", function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = CFrame.new(-2.5, 3.8, 230)
+            task.wait(0.2)
+            local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
+            if rEvents and rEvents:FindFirstChild("claimDailyChest") then
+                rEvents.claimDailyChest:InvokeServer()
+            end
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- BACKGROUND LOGIC LOOPS (ระบบทำงานเบื้องหลัง)
+    ----------------------------------------------------------------
+
+    -- 1. Auto Lift & Memory Loop
+    task.spawn(function()
+        while task.wait(0.1) do
+            if Config.AutoLift then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char then
+                        local tool = char:FindFirstChildOfClass("Tool")
+                        if not tool and Config.SavedTool then
+                            local savedToolInBackpack = LocalPlayer.Backpack:FindFirstChild(Config.SavedTool)
+                            if savedToolInBackpack then
+                                char.Humanoid:EquipTool(savedToolInBackpack)
+                                tool = savedToolInBackpack
+                            end
+                        end
+                        if tool and tool.Name ~= "Punch" then
+                            Config.SavedTool = tool.Name
+                        end
+
+                        local event = ReplicatedStorage:FindFirstChild("muscleEvent")
+                        if event then event:FireServer("rep") end
+                        if tool then tool:Activate() end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 2. Auto Rebirth Loop
+    task.spawn(function()
+        while task.wait(0.5) do
+            if Config.AutoRebirth then
+                pcall(function()
+                    local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
+                    if rEvents and rEvents:FindFirstChild("rebirthRemote") then
+                        rEvents.rebirthRemote:InvokeServer("rebirthRequest")
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 3. Auto Sell Pets Loop
+    task.spawn(function()
+        while task.wait(1) do
+            if Config.AutoSellPets then
+                pcall(function()
+                    local petsFolder = LocalPlayer:FindFirstChild("petsFolder") or LocalPlayer:FindFirstChild("Pets")
+                    if petsFolder then
+                        for _, pet in ipairs(petsFolder:GetChildren()) do
+                            local rarity = pet:FindFirstChild("Rarity") or pet:FindFirstChild("rarity")
+                            if rarity and string.lower(rarity.Value) == string.lower(Config.SelectedRarity) then
+                                local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
+                                if rEvents and rEvents:FindFirstChild("sellPetRemote") then
+                                    rEvents.sellPetRemote:InvokeServer(pet)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 4. Gym Farm Loop
+    task.spawn(function()
+        while task.wait(0.5) do
+            if Config.AutoGym then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = CFrame.new(-8633, 14, -5729)
+                        local event = ReplicatedStorage:FindFirstChild("muscleEvent")
+                        if event then event:FireServer("rep") end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 5. Mark Location Handler on Respawn/Rebirth (เช็กสวิตช์ AutoMark ก่อนวาร์ปกลับจุดเดิม)
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        if Config.AutoMark and Config.MarkedCFrame then
+            task.spawn(function()
+                local hrp = char:WaitForChild("HumanoidRootPart", 5)
+                if hrp then
+                    task.wait(0.4)
+                    hrp.CFrame = Config.MarkedCFrame
+                end
+            end)
+        end
+    end)
+end
+
+-- KEY SUBMIT EVENT (ตรวจสอบรหัสคีย์)
+SubmitBtn.MouseButton1Click:Connect(function()
+    local enteredKey = string.gsub(KeyInput.Text, "%s+", "")
+    if string.lower(enteredKey) == CORRECT_KEY then
+        KeyStatus.TextColor3 = Color3.fromRGB(80, 255, 120)
+        KeyStatus.Text = "✓ ยืนยันรหัสคีย์สำเร็จ! กำลังเปิดเมนู..."
+        task.wait(0.3)
+        OpenMainUI()
+    else
+        KeyInput.Text = ""
+        KeyStatus.Text = "✕ รหัสคีย์ไม่ถูกต้อง! (รหัสคือ: Sunday)"
+    end
+end)
