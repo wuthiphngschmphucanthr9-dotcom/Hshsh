@@ -1,0 +1,712 @@
+--[[
+    ================================================================
+            ☀️ SUNDAY HUB - STEAL AN EGG (ULTRA CINEMATIC) ☀️
+    ================================================================
+    เวอร์ชัน: v3.0 Cinematic Speed-Run Edition
+    ค่ายพัฒนา: Sunday Hub
+    ฟีเจอร์พิเศษ: 
+    - เปิดตัวอลังการพร้อม Sound FX & Camera Tween Animation
+    - ระบบวิ่งพุ่งฟาร์มความเร็วสูง ทะลุสิ่งกีดขวางทุกด่าน (No-Clip Speed-Run)
+    ================================================================
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ลบ UI เก่าของ Sunday Hub หากมีเปิดค้างอยู่
+if CoreGui:FindFirstChild("SundayHubGUI") then
+	CoreGui:FindFirstChild("SundayHubGUI"):Destroy()
+end
+if CoreGui:FindFirstChild("SundayIntroGUI") then
+	CoreGui:FindFirstChild("SundayIntroGUI"):Destroy()
+end
+
+--------------------------------------------------------------------------------
+-- 1. STATE & CONFIGURATION (ตัวแปรควบคุมระบบ)
+--------------------------------------------------------------------------------
+local Config = {
+	AutoFarm = false,
+	AutoStealBase = false,
+	EggESP = false,
+	WalkSpeed = 16,
+	FarmSpeed = 120, -- ความเร็วในการวิ่งพุ่งไปหาไข่
+	JumpPower = 50,
+	CustomSpeed = false,
+	CustomJump = false,
+	InfJump = false,
+	Noclip = false
+}
+
+local RarityColors = {
+	Legendary = Color3.fromRGB(255, 215, 0),
+	Epic = Color3.fromRGB(190, 0, 255),
+	Rare = Color3.fromRGB(0, 170, 255),
+	Common = Color3.fromRGB(200, 200, 200)
+}
+
+--------------------------------------------------------------------------------
+-- 2. CINEMATIC INTRO (ระบบเปิดตัวสุดอลังการ)
+--------------------------------------------------------------------------------
+local function PlayCinematicIntro(onComplete)
+	local IntroGui = Instance.new("ScreenGui")
+	IntroGui.Name = "SundayIntroGUI"
+	IntroGui.Parent = gethui and gethui() or CoreGui
+
+	-- ฉากหลังมืดฟีดอิน
+	local Overlay = Instance.new("Frame")
+	Overlay.Size = UDim2.new(1, 0, 1, 0)
+	Overlay.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	Overlay.BackgroundTransparency = 1
+	Overlay.Parent = IntroGui
+
+	-- กรอบโลโก้ตรงกลาง
+	local CenterFrame = Instance.new("Frame")
+	CenterFrame.Size = UDim2.new(0, 300, 0, 180)
+	CenterFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
+	CenterFrame.BackgroundTransparency = 1
+	CenterFrame.Parent = Overlay
+
+	local SunIcon = Instance.new("TextLabel")
+	SunIcon.Size = UDim2.new(1, 0, 0, 70)
+	SunIcon.Position = UDim2.new(0, 0, 0, -20)
+	SunIcon.BackgroundTransparency = 1
+	SunIcon.Text = "☀️"
+	SunIcon.TextSize = 1
+	SunIcon.Parent = CenterFrame
+
+	local Title = Instance.new("TextLabel")
+	Title.Size = UDim2.new(1, 0, 0, 40)
+	Title.Position = UDim2.new(0, 0, 0, 60)
+	Title.BackgroundTransparency = 1
+	Title.Text = "SUNDAY HUB"
+	Title.TextColor3 = Color3.fromRGB(255, 170, 0)
+	Title.TextSize = 28
+	Title.Font = Enum.Font.SourceSansBold
+	Title.TextTransparency = 1
+	Title.Parent = CenterFrame
+
+	local SubTitle = Instance.new("TextLabel")
+	SubTitle.Size = UDim2.new(1, 0, 0, 25)
+	SubTitle.Position = UDim2.new(0, 0, 0, 95)
+	SubTitle.BackgroundTransparency = 1
+	SubTitle.Text = "STEAL AN EGG • ULTRA EDITION"
+	SubTitle.TextColor3 = Color3.fromRGB(255, 220, 150)
+	SubTitle.TextSize = 13
+	SubTitle.Font = Enum.Font.SourceSansSemibold
+	SubTitle.TextTransparency = 1
+	SubTitle.Parent = CenterFrame
+
+	-- เส้นใต้ประดับ
+	local Line = Instance.new("Frame")
+	Line.Size = UDim2.new(0, 0, 0, 3)
+	Line.Position = UDim2.new(0.5, 0, 0, 130)
+	Line.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+	Line.BorderSizePixel = 0
+	Line.Parent = CenterFrame
+
+	local LineCorner = Instance.new("UICorner")
+	LineCorner.CornerRadius = UDim.new(1, 0)
+	LineCorner.Parent = Line
+
+	-- เสียงเอฟเฟกต์เปิดตัว
+	local Sound = Instance.new("Sound")
+	Sound.SoundId = "rbxassetid://6026986520" -- เสียงเอฟเฟกต์แนวชู๊ต/สปอร์ต
+	Sound.Volume = 1
+	Sound.Parent = SoundService
+	Sound:Play()
+
+	-- เริ่มเล่นแอนิเมชันเปิดตัว
+	TweenService:Create(Overlay, TweenInfo.new(0.4), {BackgroundTransparency = 0.2}):Play()
+	TweenService:Create(SunIcon, TweenInfo.new(0.6, Enum.EasingStyle.Back), {TextSize = 65}):Play()
+	task.wait(0.3)
+	TweenService:Create(Title, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+	TweenService:Create(SubTitle, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+	TweenService:Create(Line, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {Size = UDim2.new(0.8, 0, 0, 3), Position = UDim2.new(0.1, 0, 0, 130)}):Play()
+
+	task.wait(1.5)
+
+	-- แอนิเมชันปิดการเปิดตัว
+	TweenService:Create(CenterFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {Position = UDim2.new(0.5, -150, 0.4, -90)}):Play()
+	TweenService:Create(Overlay, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+	TweenService:Create(Title, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+	TweenService:Create(SubTitle, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+	TweenService:Create(SunIcon, TweenInfo.new(0.4), {TextSize = 1}):Play()
+	
+	task.wait(0.5)
+	IntroGui:Destroy()
+	Sound:Destroy()
+	if onComplete then onComplete() end
+end
+
+--------------------------------------------------------------------------------
+-- 3. MODERN UI CREATION (ระบบหน้าต่าง UI หลัก)
+--------------------------------------------------------------------------------
+local SundayUI = Instance.new("ScreenGui")
+SundayUI.Name = "SundayHubGUI"
+SundayUI.Enabled = false -- ซ่อนไว้ก่อน รอเล่น Intro เสร็จ
+if gethui then
+	SundayUI.Parent = gethui()
+elseif syn and syn.protect_gui then
+	syn.protect_gui(SundayUI)
+	SundayUI.Parent = CoreGui
+else
+	SundayUI.Parent = CoreGui
+end
+
+-- ระบบ Notification (แจ้งเตือนป๊อบอัป)
+local NotifContainer = Instance.new("Frame")
+NotifContainer.Name = "NotificationContainer"
+NotifContainer.Size = UDim2.new(0, 250, 1, 0)
+NotifContainer.Position = UDim2.new(1, -260, 0, 20)
+NotifContainer.BackgroundTransparency = 1
+NotifContainer.Parent = SundayUI
+
+local function Notify(title, text, duration)
+	duration = duration or 3
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 60)
+	card.Position = UDim2.new(1, 300, 0, #NotifContainer:GetChildren() * 65)
+	card.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+	card.BorderSizePixel = 0
+	card.Parent = NotifContainer
+
+	local cardCorner = Instance.new("UICorner")
+	cardCorner.CornerRadius = UDim.new(0, 8)
+	cardCorner.Parent = card
+
+	local accentBar = Instance.new("Frame")
+	accentBar.Size = UDim2.new(0, 4, 1, 0)
+	accentBar.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+	accentBar.BorderSizePixel = 0
+	accentBar.Parent = card
+
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.Size = UDim2.new(1, -15, 0, 25)
+	titleLbl.Position = UDim2.new(0, 12, 0, 5)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Text = title
+	titleLbl.TextColor3 = Color3.fromRGB(255, 190, 50)
+	titleLbl.TextSize = 14
+	titleLbl.Font = Enum.Font.SourceSansBold
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	titleLbl.Parent = card
+
+	local msgLbl = Instance.new("TextLabel")
+	msgLbl.Size = UDim2.new(1, -15, 0, 25)
+	msgLbl.Position = UDim2.new(0, 12, 0, 28)
+	msgLbl.BackgroundTransparency = 1
+	msgLbl.Text = text
+	msgLbl.TextColor3 = Color3.fromRGB(220, 220, 230)
+	msgLbl.TextSize = 12
+	msgLbl.Font = Enum.Font.SourceSans
+	msgLbl.TextXAlignment = Enum.TextXAlignment.Left
+	msgLbl.Parent = card
+
+	card:TweenPosition(UDim2.new(0, 0, 0, #NotifContainer:GetChildren() * 65), "Out", "Quad", 0.3, true)
+	task.delay(duration, function()
+		card:TweenPosition(UDim2.new(1, 300, 0, card.Position.Y.Offset), "In", "Quad", 0.3, true, function()
+			card:Destroy()
+		end)
+	end)
+end
+
+-- ปุ่มลอยเปิด/ปิดเมนูบนหน้าจอ
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "SundayToggleButton"
+ToggleBtn.Size = UDim2.new(0, 55, 0, 55)
+ToggleBtn.Position = UDim2.new(0.03, 0, 0.15, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 160, 0)
+ToggleBtn.Text = "☀️"
+ToggleBtn.TextSize = 28
+ToggleBtn.Parent = SundayUI
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = ToggleBtn
+
+local ToggleGlow = Instance.new("UIStroke")
+ToggleGlow.Color = Color3.fromRGB(255, 210, 100)
+ToggleGlow.Thickness = 2
+ToggleGlow.Parent = ToggleBtn
+
+-- หน้าต่างหลัก (Main Window)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 480, 0, 330)
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -165)
+MainFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = SundayUI
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 45, 60)
+MainStroke.Thickness = 1
+MainStroke.Parent = MainFrame
+
+-- แถบ Sidebar ข้างซ้าย
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 140, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+
+local SideCorner = Instance.new("UICorner")
+SideCorner.CornerRadius = UDim.new(0, 14)
+SideCorner.Parent = Sidebar
+
+local HubTitle = Instance.new("TextLabel")
+HubTitle.Size = UDim2.new(1, 0, 0, 50)
+HubTitle.BackgroundTransparency = 1
+HubTitle.Text = "☀️ SUNDAY HUB"
+HubTitle.TextColor3 = Color3.fromRGB(255, 170, 0)
+HubTitle.TextSize = 16
+HubTitle.Font = Enum.Font.SourceSansBold
+HubTitle.Parent = Sidebar
+
+local TabBtnHolder = Instance.new("Frame")
+TabBtnHolder.Size = UDim2.new(1, 0, 1, -60)
+TabBtnHolder.Position = UDim2.new(0, 0, 0, 55)
+TabBtnHolder.BackgroundTransparency = 1
+TabBtnHolder.Parent = Sidebar
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.Parent = TabBtnHolder
+
+local ContentArea = Instance.new("Frame")
+ContentArea.Size = UDim2.new(1, -150, 1, -20)
+ContentArea.Position = UDim2.new(0, 145, 0, 10)
+ContentArea.BackgroundTransparency = 1
+ContentArea.Parent = MainFrame
+
+--------------------------------------------------------------------------------
+-- 4. TAB CONTROLLER & COMPONENT CREATOR
+--------------------------------------------------------------------------------
+local Tabs = {}
+local TabButtons = {}
+
+local function CreateTab(name, icon)
+	local tabBtn = Instance.new("TextButton")
+	tabBtn.Size = UDim2.new(1, -10, 0, 36)
+	tabBtn.Position = UDim2.new(0, 5, 0, 0)
+	tabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	tabBtn.BackgroundTransparency = 1
+	tabBtn.Text = "  " .. icon .. "  " .. name
+	tabBtn.TextColor3 = Color3.fromRGB(150, 150, 170)
+	tabBtn.TextSize = 13
+	tabBtn.Font = Enum.Font.SourceSansSemibold
+	tabBtn.TextXAlignment = Enum.TextXAlignment.Left
+	tabBtn.Parent = TabBtnHolder
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 8)
+	btnCorner.Parent = tabBtn
+
+	local container = Instance.new("ScrollingFrame")
+	container.Size = UDim2.new(1, 0, 1, 0)
+	container.BackgroundTransparency = 1
+	container.ScrollBarThickness = 3
+	container.ScrollBarImageColor3 = Color3.fromRGB(255, 170, 0)
+	container.Visible = false
+	container.Parent = ContentArea
+
+	local list = Instance.new("UIListLayout")
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 8)
+	list.Parent = container
+
+	tabBtn.MouseButton1Click:Connect(function()
+		for _, t in pairs(Tabs) do t.Visible = false end
+		for _, b in pairs(TabButtons) do 
+			b.BackgroundTransparency = 1 
+			b.TextColor3 = Color3.fromRGB(150, 150, 170)
+		end
+		container.Visible = true
+		tabBtn.BackgroundTransparency = 0
+		tabBtn.BackgroundColor3 = Color3.fromRGB(255, 160, 0)
+		tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end)
+
+	table.insert(Tabs, container)
+	table.insert(TabButtons, tabBtn)
+
+	return container
+end
+
+local FarmTab = CreateTab("ฟาร์มสปีดวิ่ง", "🏃")
+local VisualTab = CreateTab("มองเห็น ESP", "👁️")
+local PlayerTab = CreateTab("ตัวละคร & สปีด", "⚡")
+local SettingTab = CreateTab("ตั้งค่าระบบ", "⚙️")
+
+Tabs[1].Visible = true
+TabButtons[1].BackgroundTransparency = 0
+TabButtons[1].BackgroundColor3 = Color3.fromRGB(255, 160, 0)
+TabButtons[1].TextColor3 = Color3.fromRGB(255, 255, 255)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
+
+local function AddToggle(parent, text, callback)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, -10, 0, 42)
+	frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+	frame.Parent = parent
+
+	local fc = Instance.new("UICorner")
+	fc.CornerRadius = UDim.new(0, 8)
+	fc.Parent = frame
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0.7, 0, 1, 0)
+	lbl.Position = UDim2.new(0, 10, 0, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = text
+	lbl.TextColor3 = Color3.fromRGB(230, 230, 240)
+	lbl.TextSize = 13
+	lbl.Font = Enum.Font.SourceSansSemibold
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = frame
+
+	local tog = Instance.new("TextButton")
+	tog.Size = UDim2.new(0, 45, 0, 22)
+	tog.Position = UDim2.new(1, -55, 0.5, -11)
+	tog.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+	tog.Text = ""
+	tog.Parent = frame
+
+	local tc = Instance.new("UICorner")
+	tc.CornerRadius = UDim.new(1, 0)
+	tc.Parent = tog
+
+	local circle = Instance.new("Frame")
+	circle.Size = UDim2.new(0, 16, 0, 16)
+	circle.Position = UDim2.new(0, 3, 0.5, -8)
+	circle.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+	circle.Parent = tog
+
+	local cc = Instance.new("UICorner")
+	cc.CornerRadius = UDim.new(1, 0)
+	cc.Parent = circle
+
+	local state = false
+	tog.MouseButton1Click:Connect(function()
+		state = not state
+		if state then
+			tog.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+			circle:TweenPosition(UDim2.new(1, -19, 0.5, -8), "Out", "Quad", 0.15, true)
+		else
+			tog.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+			circle:TweenPosition(UDim2.new(0, 3, 0.5, -8), "Out", "Quad", 0.15, true)
+		end
+		callback(state)
+	end)
+end
+
+local function AddButton(parent, text, callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -10, 0, 38)
+	btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(255, 215, 100)
+	btn.TextSize = 13
+	btn.Font = Enum.Font.SourceSansBold
+	btn.Parent = parent
+
+	local bc = Instance.new("UICorner")
+	bc.CornerRadius = UDim.new(0, 8)
+	bc.Parent = btn
+
+	local bs = Instance.new("UIStroke")
+	bs.Color = Color3.fromRGB(255, 170, 0)
+	bs.Thickness = 1
+	bs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	bs.Parent = btn
+
+	btn.MouseButton1Click:Connect(callback)
+end
+
+local function AddSlider(parent, text, min, max, default, callback)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, -10, 0, 50)
+	frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+	frame.Parent = parent
+
+	local fc = Instance.new("UICorner")
+	fc.CornerRadius = UDim.new(0, 8)
+	fc.Parent = frame
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -20, 0, 20)
+	lbl.Position = UDim2.new(0, 10, 0, 5)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = text .. " : " .. tostring(default)
+	lbl.TextColor3 = Color3.fromRGB(230, 230, 240)
+	lbl.TextSize = 12
+	lbl.Font = Enum.Font.SourceSansSemibold
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = frame
+
+	local sliderBg = Instance.new("Frame")
+	sliderBg.Size = UDim2.new(1, -20, 0, 8)
+	sliderBg.Position = UDim2.new(0, 10, 0, 32)
+	sliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+	sliderBg.Parent = frame
+
+	local sc = Instance.new("UICorner")
+	sc.CornerRadius = UDim.new(1, 0)
+	sc.Parent = sliderBg
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+	fill.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+	fill.Parent = sliderBg
+
+	local fic = Instance.new("UICorner")
+	fic.CornerRadius = UDim.new(1, 0)
+	fic.Parent = fill
+
+	local dragging = false
+	local function update(input)
+		local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+		local val = math.floor(min + (max - min) * pos)
+		fill.Size = UDim2.new(pos, 0, 1, 0)
+		lbl.Text = text .. " : " .. tostring(val)
+		callback(val)
+	end
+
+	sliderBg.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			update(input)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			update(input)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- 5. SPEED-RUN PATHFINDING & NOCLIP LOGIC (ระบบวิ่งทะลุด่านด้วยความเร็ว)
+--------------------------------------------------------------------------------
+
+local function getMyBase()
+	local bases = workspace:FindFirstChild("Bases")
+	if bases then
+		for _, base in pairs(bases:GetChildren()) do
+			if base:GetAttribute("Owner") == LocalPlayer.Name then
+				return base:FindFirstChild("NestZone") or base
+			end
+		end
+	end
+	return nil
+end
+
+-- ระบบ Noclip ทะลุกำแพงและสิ่งกีดขวาง
+RunService.Stepped:Connect(function()
+	if Config.Noclip or Config.AutoFarm then
+		if LocalPlayer.Character then
+			for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+				if part:IsA("BasePart") and part.CanCollide then
+					part.CanCollide = false
+				end
+			end
+		end
+	end
+end)
+
+-- ระบบพุ่งตัวไปหาเป้าหมายด้วยความเร็วสูงทะลุด่าน (แทนการวาร์ป)
+local function runToTarget(targetCFrame)
+	local char = LocalPlayer.Character
+	if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+	local hrp = char.HumanoidRootPart
+
+	local distance = (hrp.Position - targetCFrame.Position).Magnitude
+	local travelTime = math.clamp(distance / Config.FarmSpeed, 0.05, 3)
+
+	local tweenInfo = TweenInfo.new(travelTime, Enum.EasingStyle.Linear)
+	local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+	
+	tween:Play()
+	tween.Completed:Wait()
+end
+
+-- -------------------------------------------------------------
+-- TAB 1: AUTO FARM SPEED-RUN
+-- -------------------------------------------------------------
+AddToggle(FarmTab, "ระบบวิ่งฟาร์มอัตโนมัติ (Speed-Run Auto Farm)", function(state)
+	Config.AutoFarm = state
+	Config.Noclip = state
+	if state then Notify("Sunday Hub", "เปิดระบบวิ่งทะลุด่านฟาร์มออโต้!", 2) end
+
+	task.spawn(function()
+		while Config.AutoFarm do
+			task.wait(0.1)
+			local char = LocalPlayer.Character
+			if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+
+			local eggFolder = workspace:FindFirstChild("SpawnedEggs") or workspace
+			local targetPrompt = nil
+			local bestPriority = -1
+
+			-- คัดเลือกลำดับความหายาก
+			for _, prompt in pairs(eggFolder:GetDescendants()) do
+				if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+					local eggPart = prompt.Parent
+					local eggType = eggPart:GetAttribute("Type") or eggPart.Name
+					local priority = 1
+
+					if string.find(eggType, "Legendary") then priority = 4
+					elseif string.find(eggType, "Epic") then priority = 3
+					elseif string.find(eggType, "Rare") then priority = 2 end
+
+					if priority > bestPriority then
+						bestPriority = priority
+						targetPrompt = prompt
+					end
+				end
+			end
+
+			-- วิ่งทะลุด่านไปหาไข่ แล้ววิ่งกลับฐาน
+			if targetPrompt and targetPrompt.Parent then
+				-- วิ่งพุ่งไปหาไข่
+				runToTarget(targetPrompt.Parent.CFrame + Vector3.new(0, 2, 0))
+				task.wait(0.1)
+				fireproximityprompt(targetPrompt)
+				task.wait(0.1)
+				
+				-- วิ่งพุ่งกลับฐานนำส่ง
+				local myBase = getMyBase()
+				if myBase then
+					runToTarget(myBase.CFrame + Vector3.new(0, 3, 0))
+				end
+			end
+		end
+	end)
+end)
+
+AddSlider(FarmTab, "ความเร็วการวิ่งฟาร์ม (Farm Speed)", 60, 250, 120, function(val)
+	Config.FarmSpeed = val
+end)
+
+-- -------------------------------------------------------------
+-- TAB 2: VISUALS (ESP)
+-- -------------------------------------------------------------
+local activeEggHighlights = {}
+AddToggle(VisualTab, "มองเห็นตำแหน่งไข่ (Egg ESP)", function(state)
+	Config.EggESP = state
+	if not state then
+		for _, hl in pairs(activeEggHighlights) do if hl then hl:Destroy() end end
+		activeEggHighlights = {}
+		return
+	end
+
+	Notify("Sunday Hub", "เปิดใช้งาน Egg ESP นีออน", 2)
+	task.spawn(function()
+		while Config.EggESP do
+			local eggFolder = workspace:FindFirstChild("SpawnedEggs") or workspace
+			for _, egg in pairs(eggFolder:GetChildren()) do
+				if egg:IsA("BasePart") and not egg:FindFirstChild("SundayESP") then
+					local hl = Instance.new("Highlight")
+					hl.Name = "SundayESP"
+					
+					local typeName = egg:GetAttribute("Type") or egg.Name
+					if string.find(typeName, "Legendary") then hl.FillColor = RarityColors.Legendary
+					elseif string.find(typeName, "Epic") then hl.FillColor = RarityColors.Epic
+					elseif string.find(typeName, "Rare") then hl.FillColor = RarityColors.Rare
+					else hl.FillColor = RarityColors.Common end
+
+					hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+					hl.FillTransparency = 0.3
+					hl.Parent = egg
+					table.insert(activeEggHighlights, hl)
+				end
+			end
+			task.wait(1.5)
+		end
+	end)
+end)
+
+-- -------------------------------------------------------------
+-- TAB 3: PLAYER MODS
+-- -------------------------------------------------------------
+AddSlider(PlayerTab, "ปรับความเร็วเดินปกติ (WalkSpeed)", 16, 150, 16, function(val)
+	Config.WalkSpeed = val
+	Config.CustomSpeed = true
+end)
+
+AddSlider(PlayerTab, "ปรับแรงกระโดด (JumpPower)", 50, 200, 50, function(val)
+	Config.JumpPower = val
+	Config.CustomJump = true
+end)
+
+AddToggle(PlayerTab, "วิ่งทะลุกำแพง/สิ่งกีดขวาง (No-Clip)", function(state)
+	Config.Noclip = state
+end)
+
+AddToggle(PlayerTab, "กระโดดบนอากาศ (Infinite Jump)", function(state)
+	Config.InfJump = state
+end)
+
+UserInputService.JumpRequest:Connect(function()
+	if Config.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+		LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+	end
+end)
+
+RunService.Stepped:Connect(function()
+	if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+		local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+		if Config.CustomSpeed then hum.WalkSpeed = Config.WalkSpeed end
+		if Config.CustomJump then hum.JumpPower = Config.JumpPower end
+	end
+end)
+
+AddButton(PlayerTab, "วิ่งกลับฐานตนเอง (Run to Base)", function()
+	local myBase = getMyBase()
+	if myBase then
+		runToTarget(myBase.CFrame + Vector3.new(0, 4, 0))
+		Notify("Sunday Hub", "วิ่งกลับฐานเรียบร้อย!", 2)
+	else
+		Notify("Sunday Hub", "ไม่พบฐานของคุณ!", 2)
+	end
+end)
+
+-- -------------------------------------------------------------
+-- TAB 4: SETTINGS
+-- -------------------------------------------------------------
+AddButton(SettingTab, "ปิดและทำลาย UI (Unload Hub)", function()
+	SundayUI:Destroy()
+end)
+
+--------------------------------------------------------------------------------
+-- 6. STARTUP (เริ่มเล่น Intro และแสดง UI)
+--------------------------------------------------------------------------------
+PlayCinematicIntro(function()
+	SundayUI.Enabled = true
+	Notify("Sunday Hub", "ยินดีต้อนรับสู่ Sunday Hub v3.0!", 4)
+	print("Sunday Hub Steal An Egg Loaded Successfully!")
+end)
