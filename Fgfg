@@ -1,0 +1,1140 @@
+--[[
+    ================================================================
+    SUNDAY HUB - MUSCLE LEGENDS (ULTIMATE PREMIUM EDITION)
+    Developer: Sunday Team
+    Key Requirement: "Sunday"
+    Cover Asset ID: rbxassetid://83367327795941
+    ================================================================
+--]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local rEvents = ReplicatedStorage:WaitForChild("rEvents", 5)
+
+-- Global State Setup
+getgenv().SundayHub = getgenv().SundayHub or {
+    CurrentLanguage = "TH",
+    
+    -- Auto Lift
+    AutoLiftEnabled = false,
+    LiftMode = "Auto Memory",
+    SavedLiftTool = nil,
+    SelectedLiftTool = "Weight",
+    AutoReEquipOnDeath = true,
+    
+    -- Mark Position System (Combined Switch)
+    MarkAndReturnEnabled = false,
+    MarkedCFrame = nil,
+    
+    -- Auto Sell Pets
+    AutoSellPets = false,
+    SelectedRarityToSell = "Common",
+    AutoEquipBestPets = false,
+    
+    -- Gym Farm
+    AutoGymFarm = false,
+    SelectedGym = "Muscle King Gym (5M+ Strength)",
+    
+    -- Rock Farm
+    AutoRock = false,
+    SelectedRock = "Rock 0 Strength",
+    
+    -- Gems & Chests
+    AutoCollectGems = false,
+    
+    -- PVP Target & Defense
+    AutoPunchPlayer = false,
+    TargetPlayerName = "Everyone",
+    
+    -- Rebirth & Egg
+    AutoRebirth = false,
+    RebirthDelay = 0.3,
+    AutoEgg = false,
+    SelectedEgg = "Frost Crystal",
+    
+    -- Extra
+    AutoJoinBrawl = false,
+    InfiniteJump = false,
+    AntiAFK = true,
+    FPSBooster = false
+}
+
+local Config = getgenv().SundayHub
+local CORRECT_KEY = "Sunday"
+local COVER_ASSET_ID = "rbxassetid://83367327795941"
+
+-- Safe GUI Parent Guard
+local function GetSafeParent()
+    local parent = nil
+    pcall(function()
+        if gethui then parent = gethui()
+        else parent = CoreGui end
+    end)
+    if not parent then parent = LocalPlayer:WaitForChild("PlayerGui") end
+    return parent
+end
+
+-- Anti-AFK Kick Prevention
+LocalPlayer.Idled:Connect(function()
+    if Config.AntiAFK then
+        pcall(function()
+            VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    end
+end)
+
+-- Infinite Jump
+pcall(function()
+    UserInputService.JumpRequest:Connect(function()
+        if Config.InfiniteJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end)
+
+-- Auto Save Lift Tool
+task.spawn(function()
+    while task.wait(0.2) do
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool and tool.Name ~= "Punch" then
+                    Config.SavedLiftTool = tool.Name
+                end
+            end
+        end)
+    end
+end)
+
+-- Combined Mark & Respawn Engine
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if Config.MarkAndReturnEnabled and Config.MarkedCFrame then
+        task.spawn(function()
+            local hrp = char:WaitForChild("HumanoidRootPart", 5)
+            if hrp then
+                task.wait(0.35)
+                hrp.CFrame = Config.MarkedCFrame
+            end
+        end)
+    end
+
+    if Config.AutoReEquipOnDeath and Config.SavedLiftTool then
+        task.spawn(function()
+            local humanoid = char:WaitForChild("Humanoid", 5)
+            local backpack = LocalPlayer:WaitForChild("Backpack", 5)
+            if humanoid and backpack then
+                local savedTool = backpack:WaitForChild(Config.SavedLiftTool, 3) or backpack:FindFirstChild(Config.SavedLiftTool)
+                if savedTool then humanoid:EquipTool(savedTool) end
+            end
+        end)
+    end
+end)
+
+-- Direct Backpack Pet Sell Function
+local function SellPetsFromBackpack()
+    pcall(function()
+        local petsFolder = LocalPlayer:FindFirstChild("petsFolder") or LocalPlayer:FindFirstChild("Pets")
+        if petsFolder then
+            for _, petFolder in ipairs(petsFolder:GetChildren()) do
+                local rarity = petFolder:FindFirstChild("Rarity") or petFolder:FindFirstChild("rarity")
+                if rarity and string.lower(rarity.Value) == string.lower(Config.SelectedRarityToSell) then
+                    if rEvents and rEvents:FindFirstChild("sellPetRemote") then
+                        rEvents.sellPetRemote:InvokeServer(petFolder)
+                    elseif rEvents and rEvents:FindFirstChild("sellPet") then
+                        rEvents.sellPet:FireServer(petFolder)
+                    end
+                end
+            end
+        else
+            if rEvents and rEvents:FindFirstChild("sellPetRemote") then
+                rEvents.sellPetRemote:InvokeServer("sellPetByRarity", Config.SelectedRarityToSell)
+            end
+        end
+    end)
+end
+
+----------------------------------------------------------------
+-- 🔑 KEY SYSTEM GUI
+----------------------------------------------------------------
+local KeyGui = Instance.new("ScreenGui")
+KeyGui.Name = "SundayKeyUI"
+KeyGui.ResetOnSpawn = false
+KeyGui.Parent = GetSafeParent()
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(0, 440, 0, 240)
+KeyFrame.Position = UDim2.new(0.5, -220, 0.5, -120)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.Active = true
+KeyFrame.Draggable = true
+KeyFrame.Parent = KeyGui
+
+local KeyCorner = Instance.new("UICorner")
+KeyCorner.CornerRadius = UDim.new(0, 12)
+KeyCorner.Parent = KeyFrame
+
+local KeyStroke = Instance.new("UIStroke")
+KeyStroke.Thickness = 1.5
+KeyStroke.Color = Color3.fromRGB(255, 51, 102)
+KeyStroke.Parent = KeyFrame
+
+local KeyTitle = Instance.new("TextLabel")
+KeyTitle.Size = UDim2.new(1, 0, 0, 50)
+KeyTitle.Position = UDim2.new(0, 0, 0, 15)
+KeyTitle.BackgroundTransparency = 1
+KeyTitle.Text = "☀️ SUNDAY HUB <font color=\"#FF3366\">| Muscle Legends</font>"
+KeyTitle.RichText = true
+KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyTitle.TextSize = 16
+KeyTitle.Font = Enum.Font.GothamBold
+KeyTitle.Parent = KeyFrame
+
+local KeyInput = Instance.new("TextBox")
+KeyInput.Size = UDim2.new(0.85, 0, 0, 40)
+KeyInput.Position = UDim2.new(0.075, 0, 0.38, 0)
+KeyInput.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyInput.PlaceholderText = "กรอกคีย์ (Key: Sunday)..."
+KeyInput.PlaceholderColor3 = Color3.fromRGB(100, 100, 120)
+KeyInput.Text = ""
+KeyInput.Font = Enum.Font.Gotham
+KeyInput.TextSize = 13
+KeyInput.Parent = KeyFrame
+
+local InCorner = Instance.new("UICorner")
+InCorner.CornerRadius = UDim.new(0, 8)
+InCorner.Parent = KeyInput
+
+local KeyStatus = Instance.new("TextLabel")
+KeyStatus.Size = UDim2.new(1, 0, 0, 20)
+KeyStatus.Position = UDim2.new(0, 0, 0.61, 0)
+KeyStatus.BackgroundTransparency = 1
+KeyStatus.Text = ""
+KeyStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+KeyStatus.TextSize = 11
+KeyStatus.Font = Enum.Font.GothamMedium
+KeyStatus.Parent = KeyFrame
+
+local SubmitBtn = Instance.new("TextButton")
+SubmitBtn.Size = UDim2.new(0.85, 0, 0, 38)
+SubmitBtn.Position = UDim2.new(0.075, 0, 0.74, 0)
+SubmitBtn.BackgroundColor3 = Color3.fromRGB(255, 51, 102)
+SubmitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SubmitBtn.Text = "เข้าสู่ระบบ (Login)"
+SubmitBtn.Font = Enum.Font.GothamBold
+SubmitBtn.TextSize = 13
+SubmitBtn.Parent = KeyFrame
+
+local SubCorner = Instance.new("UICorner")
+SubCorner.CornerRadius = UDim.new(0, 8)
+SubCorner.Parent = SubmitBtn
+
+----------------------------------------------------------------
+-- 🖥️ LUXURY MINI-BAR & FULL HUD LAUNCHER
+----------------------------------------------------------------
+local function LaunchMainScript()
+    local TargetParent = GetSafeParent()
+    local ExistingUI = TargetParent:FindFirstChild("SundayUltimateUI")
+    if ExistingUI then ExistingUI:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "SundayUltimateUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = TargetParent
+
+    -- 1. Mini Long Bar (แถบยาวแนวนอนสุดหรู)
+    local MiniBar = Instance.new("Frame")
+    MiniBar.Name = "MiniBar"
+    MiniBar.Size = UDim2.new(0, 310, 0, 42)
+    MiniBar.Position = UDim2.new(0.5, -155, 0.05, 0)
+    MiniBar.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+    MiniBar.BorderSizePixel = 0
+    MiniBar.Active = true
+    MiniBar.Draggable = true
+    MiniBar.Parent = ScreenGui
+
+    local MiniCorner = Instance.new("UICorner")
+    MiniCorner.CornerRadius = UDim.new(1, 0)
+    MiniCorner.Parent = MiniBar
+
+    local MiniStroke = Instance.new("UIStroke")
+    MiniStroke.Thickness = 1.5
+    MiniStroke.Color = Color3.fromRGB(255, 51, 102)
+    MiniStroke.Parent = MiniBar
+
+    local MiniTitle = Instance.new("TextLabel")
+    MiniTitle.Size = UDim2.new(0.6, 0, 1, 0)
+    MiniTitle.Position = UDim2.new(0, 16, 0, 0)
+    MiniTitle.BackgroundTransparency = 1
+    MiniTitle.Text = "☀️ SUNDAY HUB"
+    MiniTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MiniTitle.Font = Enum.Font.GothamBold
+    MiniTitle.TextSize = 12
+    MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
+    MiniTitle.Parent = MiniBar
+
+    -- ปุ่มขยายหน้าต่าง (Expand Button)
+    local ExpandBtn = Instance.new("TextButton")
+    ExpandBtn.Size = UDim2.new(0, 30, 0, 30)
+    ExpandBtn.Position = UDim2.new(1, -68, 0.5, -15)
+    ExpandBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 44)
+    ExpandBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ExpandBtn.Text = "🗖"
+    ExpandBtn.TextSize = 13
+    ExpandBtn.Font = Enum.Font.GothamBold
+    ExpandBtn.Parent = MiniBar
+
+    local ExpCorner = Instance.new("UICorner")
+    ExpCorner.CornerRadius = UDim.new(1, 0)
+    ExpCorner.Parent = ExpandBtn
+
+    -- ปุ่มปิดฮับ (Close Button)
+    local CloseMiniBtn = Instance.new("TextButton")
+    CloseMiniBtn.Size = UDim2.new(0, 30, 0, 30)
+    CloseMiniBtn.Position = UDim2.new(1, -34, 0.5, -15)
+    CloseMiniBtn.BackgroundColor3 = Color3.fromRGB(255, 51, 80)
+    CloseMiniBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseMiniBtn.Text = "✕"
+    CloseMiniBtn.TextSize = 12
+    CloseMiniBtn.Font = Enum.Font.GothamBold
+    CloseMiniBtn.Parent = MiniBar
+
+    local ClMiniCorner = Instance.new("UICorner")
+    ClMiniCorner.CornerRadius = UDim.new(1, 0)
+    ClMiniCorner.Parent = CloseMiniBtn
+
+    -- 2. Full Luxury Main Panel
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 560, 0, 380)
+    MainFrame.Position = UDim2.new(0.5, -280, 0.5, -190)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.Visible = false -- เริ่มต้นซ่อนไว้ ให้กดปุ่มขยายเปิด
+    MainFrame.Parent = ScreenGui
+
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 12)
+    MainCorner.Parent = MainFrame
+
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Thickness = 1.5
+    MainStroke.Color = Color3.fromRGB(255, 51, 102)
+    MainStroke.Parent = MainFrame
+
+    -- Header Panel
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Size = UDim2.new(1, 0, 0, 40)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = MainFrame
+
+    local TB siis = Instance.new("UICorner")
+    TBsiis = Instance.new("UICorner")
+    TBsiis.CornerRadius = UDim.new(0, 12)
+    TBsiis.Parent = TitleBar
+
+    local BigTitle = Instance.new("TextLabel")
+    BigTitle.Size = UDim2.new(0.7, 0, 1, 0)
+    BigTitle.Position = UDim2.new(0, 15, 0, 0)
+    BigTitle.BackgroundTransparency = 1
+    BigTitle.Text = "☀️ SUNDAY HUB <font color=\"#FF3366\">| Muscle Legends Ultimate</font>"
+    BigTitle.RichText = true
+    BigTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BigTitle.TextSize = 13
+    BigTitle.Font = Enum.Font.GothamBold
+    BigTitle.TextXAlignment = Enum.TextXAlignment.Left
+    BigTitle.Parent = TitleBar
+
+    local MinimizeBtn = Instance.new("TextButton")
+    MinimizeBtn.Size = UDim2.new(0, 28, 0, 28)
+    MinimizeBtn.Position = UDim2.new(1, -68, 0.5, -14)
+    MinimizeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+    MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MinimizeBtn.Text = "-"
+    MinimizeBtn.TextSize = 16
+    MinimizeBtn.Font = Enum.Font.GothamBold
+    MinimizeBtn.Parent = TitleBar
+
+    local MinCorner = Instance.new("UICorner")
+    MinCorner.CornerRadius = UDim.new(1, 0)
+    MinCorner.Parent = MinimizeBtn
+
+    local CloseMainBtn = Instance.new("TextButton")
+    CloseMainBtn.Size = UDim2.new(0, 28, 0, 28)
+    CloseMainBtn.Position = UDim2.new(1, -34, 0.5, -14)
+    CloseMainBtn.BackgroundColor3 = Color3.fromRGB(255, 51, 80)
+    CloseMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseMainBtn.Text = "✕"
+    CloseMainBtn.TextSize = 12
+    CloseMainBtn.Font = Enum.Font.GothamBold
+    CloseMainBtn.Parent = TitleBar
+
+    local ClMainCorner = Instance.new("UICorner")
+    ClMainCorner.CornerRadius = UDim.new(1, 0)
+    ClMainCorner.Parent = CloseMainBtn
+
+    -- Connect Expand & Minimize Actions
+    ExpandBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = true
+        MiniBar.Visible = false
+    end)
+
+    MinimizeBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = false
+        MiniBar.Visible = true
+    end)
+
+    CloseMiniBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+    CloseMainBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+    ----------------------------------------------------------------
+    -- SIDEBAR & TABS SYSTEM
+    ----------------------------------------------------------------
+    local SideBar = Instance.new("Frame")
+    SideBar.Size = UDim2.new(0, 145, 1, -50)
+    SideBar.Position = UDim2.new(0, 8, 0, 44)
+    SideBar.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+    SideBar.BorderSizePixel = 0
+    SideBar.Parent = MainFrame
+
+    local SideCorner = Instance.new("UICorner")
+    SideCorner.CornerRadius = UDim.new(0, 8)
+    SideCorner.Parent = SideBar
+
+    local TabHolder = Instance.new("ScrollingFrame")
+    TabHolder.Size = UDim2.new(1, 0, 1, -50)
+    TabHolder.Position = UDim2.new(0, 0, 0, 6)
+    TabHolder.BackgroundTransparency = 1
+    TabHolder.BorderSizePixel = 0
+    TabHolder.ScrollBarThickness = 2
+    TabHolder.ScrollBarImageColor3 = Color3.fromRGB(255, 51, 102)
+    TabHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    TabHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
+    TabHolder.Parent = SideBar
+
+    local TabList = Instance.new("UIListLayout")
+    TabList.SortOrder = Enum.SortOrder.LayoutOrder
+    TabList.Padding = UDim.new(0, 3)
+    TabList.Parent = TabHolder
+
+    -- User Profile Mini Card
+    local UserCard = Instance.new("Frame")
+    UserCard.Size = UDim2.new(1, -8, 0, 40)
+    UserCard.Position = UDim2.new(0, 4, 1, -44)
+    UserCard.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    UserCard.Parent = SideBar
+
+    local UserCardCorner = Instance.new("UICorner")
+    UserCardCorner.CornerRadius = UDim.new(0, 6)
+    UserCardCorner.Parent = UserCard
+
+    local AvatarImage = Instance.new("ImageLabel")
+    AvatarImage.Size = UDim2.new(0, 28, 0, 28)
+    AvatarImage.Position = UDim2.new(0, 6, 0.5, -14)
+    AvatarImage.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    AvatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
+    AvatarImage.Parent = UserCard
+
+    local AvatarCorner = Instance.new("UICorner")
+    AvatarCorner.CornerRadius = UDim.new(1, 0)
+    AvatarCorner.Parent = AvatarImage
+
+    local UserNameLabel = Instance.new("TextLabel")
+    UserNameLabel.Size = UDim2.new(1, -38, 0, 14)
+    UserNameLabel.Position = UDim2.new(0, 38, 0, 6)
+    UserNameLabel.BackgroundTransparency = 1
+    UserNameLabel.Text = LocalPlayer.DisplayName
+    UserNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    UserNameLabel.Font = Enum.Font.GothamBold
+    UserNameLabel.TextSize = 10
+    UserNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UserNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    UserNameLabel.Parent = UserCard
+
+    local UserSubLabel = Instance.new("TextLabel")
+    UserSubLabel.Size = UDim2.new(1, -38, 0, 12)
+    UserSubLabel.Position = UDim2.new(0, 38, 0, 20)
+    UserSubLabel.BackgroundTransparency = 1
+    UserSubLabel.Text = "@" .. LocalPlayer.Name
+    UserSubLabel.TextColor3 = Color3.fromRGB(255, 51, 102)
+    UserSubLabel.Font = Enum.Font.Gotham
+    UserSubLabel.TextSize = 9
+    UserSubLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UserSubLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    UserSubLabel.Parent = UserCard
+
+    ----------------------------------------------------------------
+    -- CONTAINER SYSTEM
+    ----------------------------------------------------------------
+    local ContainerFrame = Instance.new("Frame")
+    ContainerFrame.Size = UDim2.new(1, -162, 1, -50)
+    ContainerFrame.Position = UDim2.new(0, 158, 0, 44)
+    ContainerFrame.BackgroundTransparency = 1
+    ContainerFrame.Parent = MainFrame
+
+    local Tabs = {}
+    local function CreateTab(name, icon)
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Size = UDim2.new(1, -4, 0, 28)
+        TabBtn.BackgroundColor3 = Color3.fromRGB(255, 51, 102)
+        TabBtn.BackgroundTransparency = 1
+        TabBtn.TextColor3 = Color3.fromRGB(160, 160, 180)
+        TabBtn.Text = icon .. " " .. name
+        TabBtn.Font = Enum.Font.GothamMedium
+        TabBtn.TextSize = 10
+        TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+        TabBtn.Parent = TabHolder
+
+        local BtnPadding = Instance.new("UIPadding")
+        BtnPadding.PaddingLeft = UDim.new(0, 8)
+        BtnPadding.Parent = TabBtn
+
+        local TabPage = Instance.new("ScrollingFrame")
+        TabPage.Size = UDim2.new(1, 0, 1, 0)
+        TabPage.BackgroundTransparency = 1
+        TabPage.BorderSizePixel = 0
+        TabPage.ScrollBarThickness = 3
+        TabPage.ScrollBarImageColor3 = Color3.fromRGB(255, 51, 102)
+        TabPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        TabPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+        TabPage.Visible = false
+        TabPage.Parent = ContainerFrame
+
+        local PageList = Instance.new("UIListLayout")
+        PageList.SortOrder = Enum.SortOrder.LayoutOrder
+        PageList.Padding = UDim.new(0, 6)
+        PageList.Parent = TabPage
+
+        local PagePadding = Instance.new("UIPadding")
+        PagePadding.PaddingRight = UDim.new(0, 6)
+        PagePadding.Parent = TabPage
+
+        TabBtn.MouseButton1Click:Connect(function()
+            for _, t in pairs(Tabs) do
+                t.Btn.TextColor3 = Color3.fromRGB(160, 160, 180)
+                t.Btn.BackgroundTransparency = 1
+                t.Page.Visible = false
+            end
+            TabBtn.TextColor3 = Color3.fromRGB(255, 51, 102)
+            TabBtn.BackgroundTransparency = 0.85
+            TabPage.Visible = true
+        end)
+
+        table.insert(Tabs, {Btn = TabBtn, Page = TabPage})
+        if #Tabs == 1 then
+            TabBtn.TextColor3 = Color3.fromRGB(255, 51, 102)
+            TabBtn.BackgroundTransparency = 0.85
+            TabPage.Visible = true
+        end
+
+        return TabPage
+    end
+
+    -- Pages Creation
+    local ProfilePage = CreateTab("ข้อมูลผู้ใช้", "👤")
+    local FarmPage = CreateTab("ฟาร์มกล้าม", "🏋️")
+    local MarkPage = CreateTab("มาร์กจุดตำแหน่ง", "📍")
+    local GymPage = CreateTab("ฟาร์มแต่ละยิม", "🏛️")
+    local RockPage = CreateTab("ต่อยหิน", "🪨")
+    local GemPage = CreateTab("เก็บเพชร / ของขวัญ", "💎")
+    local PVPPage = CreateTab("ต่อยผู้เล่น", "⚔️")
+    local RebirthPage = CreateTab("เกิดใหม่", "🔄")
+    local EggPage = CreateTab("คริสตัล & ขายสัตว์", "🐶")
+    local ExtraPage = CreateTab("ตั้งค่าพิเศษ", "🚀")
+    local TeleportPage = CreateTab("จุดวาร์ป", "🗺️")
+
+    ----------------------------------------------------------------
+    -- UI HELPERS
+    ----------------------------------------------------------------
+    local function CreateToggle(parent, text, defaultState, callback)
+        local ToggleFrame = Instance.new("Frame")
+        ToggleFrame.Size = UDim2.new(1, 0, 0, 36)
+        ToggleFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+        ToggleFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.Parent = ToggleFrame
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(0.68, 0, 1, 0)
+        Label.Position = UDim2.new(0, 10, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.Text = text
+        Label.TextColor3 = Color3.fromRGB(220, 220, 230)
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 10
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = ToggleFrame
+
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(0, 40, 0, 20)
+        Btn.Position = UDim2.new(1, -48, 0.5, -10)
+        Btn.BackgroundColor3 = defaultState and Color3.fromRGB(255, 51, 102) or Color3.fromRGB(35, 35, 48)
+        Btn.Text = ""
+        Btn.Parent = ToggleFrame
+
+        local BtnCorner = Instance.new("UICorner")
+        BtnCorner.CornerRadius = UDim.new(1, 0)
+        BtnCorner.Parent = Btn
+
+        local Dot = Instance.new("Frame")
+        Dot.Size = UDim2.new(0, 14, 0, 14)
+        Dot.Position = defaultState and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+        Dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        Dot.Parent = Btn
+
+        local DotCorner = Instance.new("UICorner")
+        DotCorner.CornerRadius = UDim.new(1, 0)
+        DotCorner.Parent = Dot
+
+        local state = defaultState
+        Btn.MouseButton1Click:Connect(function()
+            state = not state
+            local targetDotPos = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+            local targetBtnBg = state and Color3.fromRGB(255, 51, 102) or Color3.fromRGB(35, 35, 48)
+            pcall(function()
+                TweenService:Create(Dot, TweenInfo.new(0.2), {Position = targetDotPos}):Play()
+                TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = targetBtnBg}):Play()
+            end)
+            callback(state)
+        end)
+    end
+
+    local function CreateDropdown(parent, text, options, defaultOption, callback)
+        local DropFrame = Instance.new("Frame")
+        DropFrame.Size = UDim2.new(1, 0, 0, 36)
+        DropFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+        DropFrame.ClipsDescendants = true
+        DropFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.Parent = DropFrame
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(0.42, 0, 0, 36)
+        Label.Position = UDim2.new(0, 10, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.Text = text
+        Label.TextColor3 = Color3.fromRGB(220, 220, 230)
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 10
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.Parent = DropFrame
+
+        local SelectBtn = Instance.new("TextButton")
+        SelectBtn.Size = UDim2.new(0.53, 0, 0, 24)
+        SelectBtn.Position = UDim2.new(0.44, 0, 0, 6)
+        SelectBtn.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
+        SelectBtn.TextColor3 = Color3.fromRGB(255, 51, 102)
+        SelectBtn.Text = defaultOption .. " ▼"
+        SelectBtn.Font = Enum.Font.GothamMedium
+        SelectBtn.TextSize = 9
+        SelectBtn.Parent = DropFrame
+
+        local SelectCorner = Instance.new("UICorner")
+        SelectCorner.CornerRadius = UDim.new(0, 5)
+        SelectCorner.Parent = SelectBtn
+
+        local OptionHolder = Instance.new("Frame")
+        OptionHolder.Size = UDim2.new(1, -20, 0, #options * 26)
+        OptionHolder.Position = UDim2.new(0, 10, 0, 38)
+        OptionHolder.BackgroundTransparency = 1
+        OptionHolder.Parent = DropFrame
+
+        local List = Instance.new("UIListLayout")
+        List.Padding = UDim.new(0, 3)
+        List.Parent = OptionHolder
+
+        local expanded = false
+        SelectBtn.MouseButton1Click:Connect(function()
+            expanded = not expanded
+            local targetHeight = math.min(#options * 29, 130)
+            local targetSize = expanded and UDim2.new(1, 0, 0, 42 + targetHeight) or UDim2.new(1, 0, 0, 36)
+            pcall(function() TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = targetSize}):Play() end)
+        end)
+
+        local function refreshOptions(newOptions)
+            for _, child in ipairs(OptionHolder:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            for _, opt in ipairs(newOptions) do
+                local OptBtn = Instance.new("TextButton")
+                OptBtn.Size = UDim2.new(1, 0, 0, 26)
+                OptBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+                OptBtn.TextColor3 = Color3.fromRGB(190, 190, 210)
+                OptBtn.Text = opt
+                OptBtn.Font = Enum.Font.Gotham
+                OptBtn.TextSize = 10
+                OptBtn.Parent = OptionHolder
+
+                local OptCorner = Instance.new("UICorner")
+                OptCorner.CornerRadius = UDim.new(0, 4)
+                OptCorner.Parent = OptBtn
+
+                OptBtn.MouseButton1Click:Connect(function()
+                    SelectBtn.Text = opt .. " ▼"
+                    expanded = false
+                    pcall(function() TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 36)}):Play() end)
+                    callback(opt)
+                end)
+            end
+        end
+        refreshOptions(options)
+
+        return {
+            UpdateOptions = function(newOpts)
+                options = newOpts
+                OptionHolder.Size = UDim2.new(1, -20, 0, #options * 26)
+                refreshOptions(newOpts)
+            end
+        }
+    end
+
+    local function CreateButton(parent, text, callback)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(1, 0, 0, 32)
+        Btn.BackgroundColor3 = Color3.fromRGB(255, 51, 102)
+        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Btn.Text = text
+        Btn.Font = Enum.Font.GothamBold
+        Btn.TextSize = 11
+        Btn.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.Parent = Btn
+
+        Btn.MouseButton1Click:Connect(callback)
+    end
+
+    local function CreateStatDisplay(parent, title, initialValue)
+        local StatFrame = Instance.new("Frame")
+        StatFrame.Size = UDim2.new(1, 0, 0, 32)
+        StatFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+        StatFrame.Parent = parent
+
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 6)
+        Corner.Parent = StatFrame
+
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+        TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.Text = title
+        TitleLabel.TextColor3 = Color3.fromRGB(190, 190, 200)
+        TitleLabel.Font = Enum.Font.Gotham
+        TitleLabel.TextSize = 10
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.Parent = StatFrame
+
+        local ValueLabel = Instance.new("TextLabel")
+        ValueLabel.Size = UDim2.new(0.45, 0, 1, 0)
+        ValueLabel.Position = UDim2.new(0.5, 0, 0, 0)
+        ValueLabel.BackgroundTransparency = 1
+        ValueLabel.Text = tostring(initialValue)
+        ValueLabel.TextColor3 = Color3.fromRGB(255, 51, 102)
+        ValueLabel.Font = Enum.Font.GothamBold
+        ValueLabel.TextSize = 11
+        ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+        ValueLabel.Parent = StatFrame
+
+        return ValueLabel
+    end
+
+    ----------------------------------------------------------------
+    -- TAB IMPLEMENTATIONS
+    ----------------------------------------------------------------
+
+    -- 1. Profile Page
+    local StrengthVal = CreateStatDisplay(ProfilePage, "💪 Strength:", "0")
+    local RebirthVal = CreateStatDisplay(ProfilePage, "🔄 Rebirths:", "0")
+    local GemsVal = CreateStatDisplay(ProfilePage, "💎 Gems:", "0")
+
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+                if leaderstats then
+                    if leaderstats:FindFirstChild("Strength") then StrengthVal.Text = tostring(leaderstats.Strength.Value) end
+                    if leaderstats:FindFirstChild("Rebirths") then RebirthVal.Text = tostring(leaderstats.Rebirths.Value) end
+                    if leaderstats:FindFirstChild("Gems") then GemsVal.Text = tostring(leaderstats.Gems.Value) end
+                end
+            end)
+        end
+    end)
+
+    -- 2. Auto Lift Page
+    CreateToggle(FarmPage, "🏋️ เปิดระบบปั๊มกล้ามอัตโนมัติ", Config.AutoLiftEnabled, function(v) Config.AutoLiftEnabled = v end)
+    CreateToggle(FarmPage, "🔄 สวมใส่อุปกรณ์เดิมอัตโนมัติเมื่อตาย", Config.AutoReEquipOnDeath, function(v) Config.AutoReEquipOnDeath = v end)
+    CreateDropdown(FarmPage, "โหมดการยก:", {"Auto Memory", "Select Tool", "Ultra Fast"}, Config.LiftMode, function(selected) Config.LiftMode = selected end)
+    CreateDropdown(FarmPage, "เลือกอุปกรณ์เฉพาะ:", {"Weight", "Pushups", "Situps", "Punch", "Handstands"}, Config.SelectedLiftTool, function(selected) Config.SelectedLiftTool = selected end)
+
+    task.spawn(function()
+        while true do
+            task.wait()
+            if Config.AutoLiftEnabled then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if not char then return end
+                    local muscleEvent = LocalPlayer:FindFirstChild("muscleEvent") or ReplicatedStorage:FindFirstChild("muscleEvent")
+
+                    if Config.LiftMode == "Auto Memory" then
+                        local heldTool = char:FindFirstChildOfClass("Tool")
+                        if not heldTool and Config.SavedLiftTool then
+                            local savedToolInBackpack = LocalPlayer.Backpack:FindFirstChild(Config.SavedLiftTool)
+                            if savedToolInBackpack then
+                                char.Humanoid:EquipTool(savedToolInBackpack)
+                                heldTool = savedToolInBackpack
+                            end
+                        end
+                        if heldTool then
+                            if muscleEvent then muscleEvent:FireServer("rep") end
+                            heldTool:Activate()
+                        end
+                    elseif Config.LiftMode == "Select Tool" then
+                        local toolName = Config.SelectedLiftTool
+                        local backpackTool = LocalPlayer.Backpack:FindFirstChild(toolName)
+                        local equippedTool = char:FindFirstChild(toolName)
+                        if backpackTool then char.Humanoid:EquipTool(backpackTool) end
+                        if equippedTool or backpackTool then
+                            if muscleEvent then muscleEvent:FireServer("rep") end
+                            local activeTool = char:FindFirstChildOfClass("Tool")
+                            if activeTool then activeTool:Activate() end
+                        end
+                    elseif Config.LiftMode == "Ultra Fast" then
+                        if not char:FindFirstChildOfClass("Tool") then
+                            for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                                if tool:IsA("Tool") then char.Humanoid:EquipTool(tool) break end
+                            end
+                        end
+                        if muscleEvent then muscleEvent:FireServer("rep") end
+                        local activeTool = char:FindFirstChildOfClass("Tool")
+                        if activeTool then activeTool:Activate() end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 📍 3. MARK LOCATION PAGE (ระบบสวิตช์เดียว อัปเดตพิกัด + วาร์ปกลับอัตโนมัติเมื่อเกิดใหม่/ตาย)
+    local MarkedStatusDisplay = CreateStatDisplay(MarkPage, "📍 สถานะพิกัดปัจจุบัน:", "ยังไม่ได้มาร์ก")
+
+    CreateButton(MarkPage, "📌 อัปเดตบันทึกพิกัดตำแหน่งยืนปัจจุบัน", function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                Config.MarkedCFrame = char.HumanoidRootPart.CFrame
+                local pos = Config.MarkedCFrame.Position
+                MarkedStatusDisplay.Text = string.format("(%.1f, %.1f, %.1f)", pos.X, pos.Y, pos.Z)
+            end
+        end)
+    end)
+
+    CreateToggle(MarkPage, "🔄 สวิตช์เปิด-ปิดวาร์ปกลับจุดมาร์กอัตโนมัติเมื่อตาย", Config.MarkAndReturnEnabled, function(v)
+        Config.MarkAndReturnEnabled = v
+    end)
+
+    CreateButton(MarkPage, "🚀 วาร์ปกลับไปจุดมาร์กทันที", function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and Config.MarkedCFrame then
+                char.HumanoidRootPart.CFrame = Config.MarkedCFrame
+            end
+        end)
+    end)
+
+    -- 4. Gym Farm Page
+    local gymPositions = {
+        ["Spawn Safezone"] = Vector3.new(7, 4, 108),
+        ["Beach Gym (10 Rebirths)"] = Vector3.new(-2584, 6, -485),
+        ["Infernal Gym (30 Rebirths)"] = Vector3.new(2450, 8, 1100),
+        ["Legends Gym (100 Rebirths)"] = Vector3.new(4616, 994, -3914),
+        ["Muscle King Gym (5M+ Strength)"] = Vector3.new(-8633, 14, -5729)
+    }
+    CreateToggle(GymPage, "🏛️ เปิดระบบฟาร์มประจำยิมอัตโนมัติ", Config.AutoGymFarm, function(v) Config.AutoGymFarm = v end)
+    CreateDropdown(GymPage, "เลือกยิมที่ต้องการฟาร์ม:", {"Spawn Safezone", "Beach Gym (10 Rebirths)", "Infernal Gym (30 Rebirths)", "Legends Gym (100 Rebirths)", "Muscle King Gym (5M+ Strength)"}, Config.SelectedGym, function(selected) Config.SelectedGym = selected end)
+
+    task.spawn(function()
+        while true do
+            task.wait(0.2)
+            if Config.AutoGymFarm then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        local pos = gymPositions[Config.SelectedGym]
+                        if pos then char.HumanoidRootPart.CFrame = CFrame.new(pos) end
+                        local muscleEvent = LocalPlayer:FindFirstChild("muscleEvent") or ReplicatedStorage:FindFirstChild("muscleEvent")
+                        if muscleEvent then muscleEvent:FireServer("rep") end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 5. Auto Rock Page
+    local rockRequirements = {
+        ["Rock 0 Strength"] = 0,
+        ["Rock 10 Strength"] = 10,
+        ["Rock 100 Strength"] = 100,
+        ["Rock 5,000 Strength"] = 5000,
+        ["Rock 150,000 Strength"] = 150000,
+        ["Rock 400,000 Strength"] = 400000,
+        ["Rock 750,000 Strength"] = 750000,
+        ["Rock 1,000,000 Strength"] = 1000000,
+        ["Rock 5,000,000 Strength"] = 5000000
+    }
+    CreateToggle(RockPage, "🪨 เปิดระบบต่อยหินอัตโนมัติ", Config.AutoRock, function(v) Config.AutoRock = v end)
+    CreateDropdown(RockPage, "เลือกประเภทหิน:", {"Rock 0 Strength", "Rock 10 Strength", "Rock 100 Strength", "Rock 5,000 Strength", "Rock 150,000 Strength", "Rock 400,000 Strength", "Rock 750,000 Strength", "Rock 1,000,000 Strength", "Rock 5,000,000 Strength"}, Config.SelectedRock, function(selected) Config.SelectedRock = selected end)
+
+    local function GetTargetRock(requiredReq)
+        local rocksFolder = Workspace:FindFirstChild("rocks") or Workspace:FindFirstChild("Rocks") or Workspace
+        for _, rock in ipairs(rocksFolder:GetChildren()) do
+            if rock:IsA("Model") or rock:IsA("BasePart") then
+                local req = rock:FindFirstChild("requiredStrength") or rock:FindFirstChild("Requirement")
+                if req and req.Value == requiredReq then
+                    return rock:IsA("Model") and (rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart")) or rock
+                end
+            end
+        end
+        return nil
+    end
+
+    task.spawn(function()
+        while true do
+            task.wait(0.05)
+            if Config.AutoRock then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                        local targetReq = rockRequirements[Config.SelectedRock]
+                        local targetRockPart = GetTargetRock(targetReq)
+                        local punch = char:FindFirstChild("Punch") or LocalPlayer.Backpack:FindFirstChild("Punch")
+                        if punch and punch.Parent ~= char then char.Humanoid:EquipTool(punch) end
+                        if targetRockPart then
+                            local rockPos = targetRockPart.Position
+                            char.HumanoidRootPart.CFrame = CFrame.lookAt(rockPos + Vector3.new(0, 2, 4), rockPos)
+                            char.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+                        end
+                        local muscleEvent = LocalPlayer:FindFirstChild("muscleEvent") or ReplicatedStorage:FindFirstChild("muscleEvent")
+                        if muscleEvent then muscleEvent:FireServer("rep") end
+                        if punch then punch:Activate() end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 6. Gems & Chests Page
+    CreateToggle(GemPage, "💎 เปิดระบบเก็บเพชรอัตโนมัติ", Config.AutoCollectGems, function(v) Config.AutoCollectGems = v end)
+    CreateButton(GemPage, "🎁 วาร์ปไปรับของขวัญประจำวันทันที", function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(-2.5, 3.8, 230))
+                task.wait(0.3)
+                if rEvents and rEvents:FindFirstChild("claimDailyChest") then rEvents.claimDailyChest:InvokeServer() end
+            end
+        end)
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(0.2)
+            if Config.AutoCollectGems then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                    for _, item in ipairs(Workspace:GetChildren()) do
+                        if item.Name == "Gem" or item.Name == "Gems" or item.Name:find("Gem") then
+                            local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
+                            if part then char.HumanoidRootPart.CFrame = part.CFrame task.wait(0.1) end
+                        end
+                    end
+                    if rEvents and rEvents:FindFirstChild("collectGem") then rEvents.collectGem:FireServer() end
+                end)
+            end
+        end
+    end)
+
+    -- 7. PVP Page
+    local function GetPlayerNames()
+        local names = {"Everyone"}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(names, p.Name) end
+        end
+        return names
+    end
+    CreateToggle(PVPPage, "⚔️ เปิดระบบต่อยผู้เล่นล็อกเป้าหมาย", Config.AutoPunchPlayer, function(v) Config.AutoPunchPlayer = v end)
+    local playerDrop = CreateDropdown(PVPPage, "เลือกเป้าหมาย:", GetPlayerNames(), Config.TargetPlayerName, function(selected) Config.TargetPlayerName = selected end)
+    CreateButton(PVPPage, "🔄 รีเฟรชรายชื่อผู้เล่น", function() playerDrop.UpdateOptions(GetPlayerNames()) end)
+
+    task.spawn(function()
+        while true do
+            task.wait(0.05)
+            if Config.AutoPunchPlayer then
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                    local punch = char:FindFirstChild("Punch") or LocalPlayer.Backpack:FindFirstChild("Punch")
+                    if punch and punch.Parent ~= char then char.Humanoid:EquipTool(punch) end
+
+                    local targetList = {}
+                    if Config.TargetPlayerName == "Everyone" then
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                                table.insert(targetList, p)
+                            end
+                        end
+                    else
+                        local targetP = Players:FindFirstChild(Config.TargetPlayerName)
+                        if targetP and targetP.Character and targetP.Character:FindFirstChild("HumanoidRootPart") and targetP.Character:FindFirstChild("Humanoid") and targetP.Character.Humanoid.Health > 0 then
+                            table.insert(targetList, targetP)
+                        end
+                    end
+
+                    for _, targetPlayer in ipairs(targetList) do
+                        if not Config.AutoPunchPlayer then break end
+                        local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if targetHRP then
+                            char.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 2)
+                            char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                            local muscleEvent = LocalPlayer:FindFirstChild("muscleEvent") or ReplicatedStorage:FindFirstChild("muscleEvent")
+                            if muscleEvent then muscleEvent:FireServer("rep") end
+                            if punch then punch:Activate() end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- 8. Rebirth Page
+    CreateToggle(RebirthPage, "🔄 เปิดระบบ Rebirth อัตโนมัติ", Config.AutoRebirth, function(v) Config.AutoRebirth = v end)
+    CreateButton(RebirthPage, "⚡ กด Rebirth ทันที (1 ครั้ง)", function()
+        pcall(function()
+            if rEvents and rEvents:FindFirstChild("rebirthRemote") then rEvents.rebirthRemote:InvokeServer("rebirthRequest") end
+        end)
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(Config.RebirthDelay)
+            if Config.AutoRebirth then
+                pcall(function()
+                    if rEvents and rEvents:FindFirstChild("rebirthRemote") then rEvents.rebirthRemote:InvokeServer("rebirthRequest") end
+                end)
+            end
+        end
+    end)
+
+    -- 9. Crystal & Backpack Pet Sell Page
+    CreateToggle(EggPage, "🥚 เปิดระบบสุ่มคริสตัลอัตโนมัติ", Config.AutoEgg, function(v) Config.AutoEgg = v end)
+    CreateDropdown(EggPage, "เลือกคริสตัล:", {"Frost Crystal", "Mythical Crystal", "Inferno Crystal", "Legends Crystal", "500M Crystal", "Galaxy Crystal"}, Config.SelectedEgg, function(selected) Config.SelectedEgg = selected end)
+    
+    CreateToggle(EggPage, "💰 เปิดระบบขายสัตว์เลี้ยงในกระเป๋าตามระดับ", Config.AutoSellPets, function(v) Config.AutoSellPets = v end)
+    CreateDropdown(EggPage, "เลือกระดับสัตว์ที่จะขาย:", {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical"}, Config.SelectedRarityToSell, function(selected) Config.SelectedRarityToSell = selected end)
+
+    task.spawn(function()
+        while true do
+            task.wait(0.4)
+            if Config.AutoEgg then
+                pcall(function()
+                    if rEvents and rEvents:FindFirstChild("openEggRemote") then
+                        rEvents.openEggRemote:InvokeServer("openEgg", Config.SelectedEgg)
+                    end
+                end)
+            end
+        end
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            if Config.AutoSellPets then SellPetsFromBackpack() end
+        end
+    end)
+
+    -- 10. Extra Page
+    CreateToggle(ExtraPage, "🥊 เข้าร่วมลานประลองอัตโนมัติ (Brawl)", Config.AutoJoinBrawl, function(v) Config.AutoJoinBrawl = v end)
+    CreateToggle(ExtraPage, "🦘 กระโดดไม่จำกัด (Infinite Jump)", Config.InfiniteJump, function(v) Config.InfiniteJump = v end)
+    CreateToggle(ExtraPage, "⚡ โหมดลดกระตุก (FPS Booster)", Config.FPSBooster, function(v)
+        Config.FPSBooster = v
+        pcall(function()
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                    obj.Enabled = not Config.FPSBooster
+                end
+            end
+        end)
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            if Config.AutoJoinBrawl then
+                pcall(function()
+                    if rEvents and rEvents:FindFirstChild("brawlEvent") then rEvents.brawlEvent:FireServer("joinBrawl")
+                    elseif rEvents and rEvents:FindFirstChild("brawlJoinRemote") then rEvents.brawlJoinRemote:InvokeServer() end
+                end)
+            end
+        end
+    end)
+
+    -- 11. Teleport Page
+    local locations = {
+        ["Spawn Safezone"] = Vector3.new(7, 4, 108),
+        ["Daily Chest"] = Vector3.new(-2.5, 3.8, 230),
+        ["Beach Gym"] = Vector3.new(-2584, 6, -485),
+        ["Legends Gym"] = Vector3.new(4616, 994, -3914),
+        ["Muscle King Gym"] = Vector3.new(-8633, 14, -5729),
+        ["Infernal Gym"] = Vector3.new(2450, 8, 1100)
+    }
+
+    for placeName, pos in pairs(locations) do
+        CreateButton(TeleportPage, "วาร์ปไป: " .. placeName, function()
+            pcall(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+                end
+            end)
+        end)
+    end
+
+    print("[SUNDAY HUB] Ultimate Edition Loaded Successfully!")
+end
+
+----------------------------------------------------------------
+-- SUBMIT KEY LISTENER
+----------------------------------------------------------------
+SubmitBtn.MouseButton1Click:Connect(function()
+    local enteredKey = string.gsub(KeyInput.Text, "%s+", "")
+    if string.lower(enteredKey) == string.lower(CORRECT_KEY) then
+        KeyStatus.TextColor3 = Color3.fromRGB(80, 255, 120)
+        KeyStatus.Text = "✓ คีย์ถูกต้อง! กำลังเข้าสู่ระบบ..."
+        task.wait(0.4)
+        KeyGui:Destroy()
+        LaunchMainScript()
+    else
+        KeyStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        KeyStatus.Text = "✕ คีย์ไม่ถูกต้อง! (พิมพ์คำว่า: Sunday)"
+        task.wait(1.5)
+        KeyStatus.Text = ""
+    end
+end)
