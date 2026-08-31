@@ -1,0 +1,180 @@
+--[=[
+	Title: Roblox Global Music Player & UI
+	Description: A collapsible, draggable small UI that shows currently playing music across the map.
+	Instructions for Roblox Studio:
+	1. Create a RemoteEvent in ReplicatedStorage named "UpdateMusicState".
+	2. Put this script into a LocalScript inside StarterPlayerScripts or StarterGui (with a ScreenGui).
+]=]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MusicPlayerGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame (Small, Modern UI)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 110)
+mainFrame.Position = UDim2.new(0.05, 0, 0.8, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(60, 60, 70)
+uiStroke.Thickness = 1.5
+uiStroke.Parent = mainFrame
+
+-- Title Bar / Header
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundTransparency = 1
+header.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -40, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🎵 กำลังเล่นเพลง"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 14
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = header
+
+-- Minimize / Toggle Button (- / +)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 25, 0, 25)
+toggleBtn.Position = UDim2.new(1, -30, 0, 3)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+toggleBtn.Text = "-"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Parent = header
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+-- Content Area (Song Name & Copy Button)
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "ContentFrame"
+contentFrame.Size = UDim2.new(1, -20, 1, -40)
+contentFrame.Position = UDim2.new(0, 10, 0, 35)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
+
+local songNameLabel = Instance.new("TextLabel")
+songNameLabel.Name = "SongName"
+songNameLabel.Size = UDim2.new(1, 0, 0, 35)
+songNameLabel.BackgroundTransparency = 1
+songNameLabel.Text = "ไม่มีเพลงที่กำลังเล่น"
+songNameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+songNameLabel.TextSize = 13
+songNameLabel.Font = Enum.Font.Gotham
+songNameLabel.TextWrapped = true
+songNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+songNameLabel.Parent = contentFrame
+
+-- Copy ID Button
+local copyBtn = Instance.new("TextButton")
+copyBtn.Name = "CopyButton"
+copyBtn.Size = UDim2.new(1, 0, 0, 25)
+copyBtn.Position = UDim2.new(0, 0, 1, -28)
+copyBtn.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+copyBtn.Text = "คัดลอกรหัสเพลง"
+copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyBtn.TextSize = 12
+copyBtn.Font = Enum.Font.GothamSemibold
+copyBtn.Parent = contentFrame
+
+local copyCorner = Instance.new("UICorner")
+copyCorner.CornerRadius = UDim.new(0, 6)
+copyCorner.Parent = copyBtn
+
+-- Minimize State Logic
+local isMinimized = false
+toggleBtn.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	local targetSize = isMinimized and UDim2.new(0, 220, 0, 35) or UDim2.new(0, 220, 0, 110)
+	contentFrame.Visible = not isMinimized
+	toggleBtn.Text = isMinimized and "+" or "-"
+	
+	local tween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize})
+	tween:Play()
+end)
+
+-- Draggable UI Logic for Mobile & PC
+local dragging, dragInput, dragStart, startPos
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = mainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+-- Copy to Clipboard Functionality
+copyBtn.MouseButton1Click:Connect(function()
+	local currentText = copyBtn.Text
+	-- Get asset id or song name text
+	local songText = songNameLabel.Text
+	if songText ~= "ไม่มีเพลงที่กำลังเล่น" then
+		if setclipboard then
+			setclipboard(songText)
+			copyBtn.Text = "คัดลอกแล้ว!"
+			task.wait(1.5)
+			copyBtn.Text = currentText
+		else
+			copyBtn.Text = "ไม่รองรับคลิปบอร์ด"
+			task.wait(1.5)
+			copyBtn.Text = currentText
+		end
+	end
+end)
+
+-- Remote Event Listener for Global Map Music Updates
+-- Expecting ReplicatedStorage.UpdateMusicState (RemoteEvent)
+local remoteEvent = ReplicatedStorage:FindFirstChild("UpdateMusicState")
+if remoteEvent then
+	remoteEvent.OnClientEvent:Connect(fnction(songTitle, isPlaying)
+		if isPlaying and songTitle then
+			songNameLabel.Text = songTitle
+		else
+			songNameLabel.Text = "ไม่มีเพลงที่กำลังเล่น"
+		end
+	end)
+end
